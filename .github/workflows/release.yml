@@ -1,0 +1,63 @@
+name: kernel
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Kernel profile
+        type: choice
+        options:
+          - balanced
+          - performance
+          - powersave
+        default: balanced
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and package the kernel
+        env:
+          AEGIS_KERNEL_PROFILE: ${{ github.event.inputs.profile || 'balanced' }}
+          AEGIS_GPG_PRIVATE_KEY: ${{ secrets.AEGIS_GPG_PRIVATE_KEY }}
+          AEGIS_GPG_PASSPHRASE: ${{ secrets.AEGIS_GPG_PASSPHRASE }}
+        run: |
+          docker run --rm \
+            -v "$PWD":/src \
+            -w /src \
+            -e AEGIS_KERNEL_PROFILE \
+            -e AEGIS_GPG_PRIVATE_KEY \
+            -e AEGIS_GPG_PASSPHRASE \
+            archlinux:base-devel \
+            bash -lc 'pacman -Syu --noconfirm --needed base-devel sudo bc cpio gettext libelf pahole perl python tar xz kmod curl gnupg && ./scripts/build-package.sh'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-aegis
+          path: out/*.pkg.tar.zst
+          retention-days: 14
+      - name: Publish kernel packages
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shopt -s nullglob
+          assets=(out/*.pkg.tar.zst out/*.pkg.tar.zst.sig)
+          gh release upload "${GITHUB_REF_NAME}" "${assets[@]}" --clobber
+      - name: Ask the package repository to index the kernel
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ secrets.AEGIS_REPO_TOKEN }}
+        run: |
+          if [[ -z "${GH_TOKEN}" ]]; then
+            echo "AEGIS_REPO_TOKEN is not set; skip repository dispatch"
+            exit 0
+          fi
+          gh api "repos/AegisOperativeSystem/aegis-pkgs/dispatches" \
+            -f event_type=index-kernel \
+            -f "client_payload[tag]=${GITHUB_REF_NAME}"

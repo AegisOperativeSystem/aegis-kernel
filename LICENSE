@@ -1,0 +1,7 @@
+SPDX-License-Identifier: GPL-2.0-only
+
+The Linux kernel is licensed under the GNU General Public License, version 2
+only. Packaging scripts and configuration fragments in this repository are
+distributed under the same license.
+
+See <https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt>.

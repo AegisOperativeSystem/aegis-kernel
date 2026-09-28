@@ -1,0 +1,12 @@
+# mkinitcpio preset file for the 'linux-aegis' package
+
+ALL_config="/etc/mkinitcpio.conf"
+ALL_kver="/boot/vmlinuz-linux-aegis"
+
+PRESETS=('default' 'fallback')
+
+default_image="/boot/initramfs-linux-aegis.img"
+default_options=""
+
+fallback_image="/boot/initramfs-linux-aegis-fallback.img"
+fallback_options="-S autodetect"
